@@ -1,12 +1,11 @@
 package com.xj.IntelligentInterviewPlatform.service.impl;
 
-import static com.xj.IntelligentInterviewPlatform.constant.UserConstant.USER_LOGIN_STATE;
-
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xj.IntelligentInterviewPlatform.common.ErrorCode;
 import com.xj.IntelligentInterviewPlatform.constant.CommonConstant;
+import com.xj.IntelligentInterviewPlatform.constant.RedisConstant;
 import com.xj.IntelligentInterviewPlatform.exception.BusinessException;
 import com.xj.IntelligentInterviewPlatform.mapper.UserMapper;
 import com.xj.IntelligentInterviewPlatform.model.dto.user.UserQueryRequest;
@@ -16,25 +15,34 @@ import com.xj.IntelligentInterviewPlatform.model.vo.LoginUserVO;
 import com.xj.IntelligentInterviewPlatform.model.vo.UserVO;
 import com.xj.IntelligentInterviewPlatform.service.UserService;
 import com.xj.IntelligentInterviewPlatform.utils.SqlUtils;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-import javax.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RBitSet;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.xj.IntelligentInterviewPlatform.constant.UserConstant.USER_LOGIN_STATE;
+
 /**
  * 用户服务实现
- *
- 
  */
 @Service
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    @Resource
+    private RedissonClient redissonClient;
 
     /**
      * 盐值，混淆密码
@@ -267,5 +275,42 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+    @Override
+    public boolean addUserSignIn(long userId) {
+        LocalDateTime date = LocalDateTime.now();
+        String userSignInRedisKey = RedisConstant.getUserSignInRedisKey(date.getYear(), userId);
+        RBitSet bitSet = redissonClient.getBitSet(userSignInRedisKey);
+        int dayOfYear = date.getDayOfYear();
+        if (!bitSet.get(dayOfYear)) {
+            return bitSet.set(dayOfYear, true);
+        }
+        return true;
+    }
+
+    /**
+     * 获取用户某个年份的签到记录
+     *
+     * @param userId 用户 id
+     * @param year   年份（为空表示当前年份）
+     * @return 签到记录映射
+     */
+    @Override
+    public List<Integer> getUserSignInRecord(long userId, Integer year) {
+        if (year == null) {
+            LocalDateTime now = LocalDateTime.now();
+            year = now.getYear();
+        }
+        String key = RedisConstant.getUserSignInRedisKey(year, userId);
+        List<Integer> res = new ArrayList<>();
+        RBitSet signBitSet = redissonClient.getBitSet(key);
+        BitSet bitSet = signBitSet.asBitSet();
+        int index = bitSet.nextSetBit(0);
+        while(index >= 0){
+            res.add(index);
+            index = bitSet.nextSetBit(index + 1);
+        }
+        return res;
     }
 }
