@@ -36,6 +36,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -47,8 +48,6 @@ import java.util.stream.Collectors;
 
 /**
  * 题目服务实现
- *
-   
  */
 @Service
 @Slf4j
@@ -242,6 +241,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Page<Question> searchFromEs(QuestionQueryRequest questionQueryRequest) {
         // 获取参数
         Long id = questionQueryRequest.getId();
@@ -312,6 +312,30 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         }
         page.setRecords(resourceList);
         return page;
+    }
+
+    /**
+     * 批量删除题目
+     *
+     * @param questionIdList
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchDeleteQuestions(List<Long> questionIdList) {
+        //校验参数
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR, "题目列表为空");
+        //删除题目
+        for (long question : questionIdList) {
+            LambdaQueryWrapper<Question> queryWrapper = Wrappers.lambdaQuery(Question.class)
+                    .eq(Question::getId, question);
+            boolean res = this.remove(queryWrapper);
+            ThrowUtils.throwIf(res == false, ErrorCode.OPERATION_ERROR, "删除题目失败");
+            //删除题目题库关联
+            LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                    .eq(QuestionBankQuestion::getQuestionId, question);
+            boolean res2 = questionBankQuestionService.remove(lambdaQueryWrapper);
+            ThrowUtils.throwIf(res2 == false, ErrorCode.OPERATION_ERROR, "删除题目题库关系失败");
+        }
     }
 
 }

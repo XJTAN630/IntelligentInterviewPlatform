@@ -1,6 +1,7 @@
 package com.xj.IntelligentInterviewPlatform.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jd.platform.hotkey.client.callback.JdHotKeyStore;
 import com.xj.IntelligentInterviewPlatform.annotation.AuthCheck;
 import com.xj.IntelligentInterviewPlatform.common.BaseResponse;
 import com.xj.IntelligentInterviewPlatform.common.DeleteRequest;
@@ -31,8 +32,6 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * 题库接口
- *
-   
  */
 @RestController
 @RequestMapping("/questionBank")
@@ -143,6 +142,14 @@ public class QuestionBankController {
         ThrowUtils.throwIf(questionBankQueryRequest == null, ErrorCode.PARAMS_ERROR);
         Long id = questionBankQueryRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        // 生成 key
+        String key = "bank_detail_" + id;
+        if (JdHotKeyStore.isHotKey(key)) {
+            Object res = JdHotKeyStore.get(key);
+            if (res != null) {
+                return ResultUtils.success((QuestionBankVO) res);
+            }
+        }
         // 查询数据库
         QuestionBank questionBank = questionBankService.getById(id);
         ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR);
@@ -160,6 +167,7 @@ public class QuestionBankController {
             Page<QuestionVO> questionVOPage = questionService.getQuestionVOPage(questionPage, request);
             questionBankVO.setQuestionPage(questionVOPage);
         }
+        JdHotKeyStore.smartSet(key, questionBankVO);
         // 获取封装类
         return ResultUtils.success(questionBankVO);
     }

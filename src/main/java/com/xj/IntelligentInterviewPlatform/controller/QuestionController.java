@@ -10,10 +10,7 @@ import com.xj.IntelligentInterviewPlatform.common.ResultUtils;
 import com.xj.IntelligentInterviewPlatform.constant.UserConstant;
 import com.xj.IntelligentInterviewPlatform.exception.BusinessException;
 import com.xj.IntelligentInterviewPlatform.exception.ThrowUtils;
-import com.xj.IntelligentInterviewPlatform.model.dto.question.QuestionAddRequest;
-import com.xj.IntelligentInterviewPlatform.model.dto.question.QuestionEditRequest;
-import com.xj.IntelligentInterviewPlatform.model.dto.question.QuestionQueryRequest;
-import com.xj.IntelligentInterviewPlatform.model.dto.question.QuestionUpdateRequest;
+import com.xj.IntelligentInterviewPlatform.model.dto.question.*;
 import com.xj.IntelligentInterviewPlatform.model.entity.Question;
 import com.xj.IntelligentInterviewPlatform.model.entity.User;
 import com.xj.IntelligentInterviewPlatform.model.vo.QuestionVO;
@@ -260,5 +257,12 @@ public class QuestionController {
         return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
     }
 
-    // endregion
+    @PostMapping("/delete/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchDeleteQuestions(@RequestBody QuestionBatchDeleteRequest questionBatchDeleteRequest,
+                                                      HttpServletRequest request) {
+        ThrowUtils.throwIf(questionBatchDeleteRequest == null, ErrorCode.PARAMS_ERROR);
+        questionService.batchDeleteQuestions(questionBatchDeleteRequest.getQuestionIdList());
+        return ResultUtils.success(true);
+    }
 }
