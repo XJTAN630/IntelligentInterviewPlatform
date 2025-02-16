@@ -9,14 +9,21 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Redisson 配置
+ */
 @Configuration
-@Data
 @ConfigurationProperties(prefix = "spring.redis")
+@Data
 public class RedissonConfig {
+
     private String host;
+
     private Integer port;
-    private String password;
+
     private Integer database;
+
+    private String password;
 
     @Bean
     public RedissonClient redissonClient() {
